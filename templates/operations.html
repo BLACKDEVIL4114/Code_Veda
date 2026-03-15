@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Operations - IMS Dashboard{% endblock %}
+{% block content %}
+<div class="card mb-6">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="card-title">
+                <i class="fas fa-exchange-alt text-primary"></i>
+                Stock Operations
+            </h1>
+            <p class="card-subtitle">
+                Track all stock movements: receipts, deliveries, and transfers.
+            </p>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-primary dropdown-toggle">
+                <i class="fas fa-plus"></i> New Operation
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="{{ url_for('new_operation', op_type='Receipt') }}"><i class="fas fa-arrow-down text-success"></i> Receipt</a></li>
+                <li><a href="{{ url_for('new_operation', op_type='Delivery') }}"><i class="fas fa-arrow-up text-danger"></i> Delivery</a></li>
+                <li><a href="{{ url_for('new_operation', op_type='Transfer') }}"><i class="fas fa-exchange-alt text-warning"></i> Internal Transfer</a></li>
+                <li><a href="{{ url_for('new_operation', op_type='Adjustment') }}"><i class="fas fa-sliders-h text-info"></i> Inventory Adjustment</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>User</th>
+                        <th>Movements</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for op in operations %}
+                        <tr>
+                            <td>{{ op.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                {% if op.type == 'Receipt' %}
+                                    <span class="text-success"><i class="fas fa-arrow-down"></i> Receipt</span>
+                                    {% if op.supplier_name %}
+                                        <br><span class="text-muted" style="font-size:.8rem;">Supplier: {{ op.supplier_name }}</span>
+                                    {% endif %}
+                                {% elif op.type == 'Delivery' %}
+                                    <span class="text-danger"><i class="fas fa-arrow-up"></i> Delivery</span>
+                                {% elif op.type == 'Transfer' %}
+                                    <span class="text-warning"><i class="fas fa-exchange-alt"></i> Transfer</span>
+                                {% elif op.type == 'Adjustment' %}
+                                    <span class="text-info"><i class="fas fa-sliders-h"></i> Adjustment</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge badge-{% if op.status == 'Done' %}success{% elif op.status == 'Draft' %}secondary{% else %}warning{% endif %}">
+                                    {{ op.status }}
+                                </span>
+                                {% if op.status != 'Done' and op.status != 'Canceled' %}
+                                    <form method="POST" action="{{ url_for('validate_operation', op_id=op.id) }}" style="display:inline; margin-left:5px;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-primary py-0 px-2" style="font-size:0.75rem;">
+                                            <i class="fas fa-check"></i> Validate
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                            <td>{{ op.user.username }}</td>
+                            <td>
+                                <ul>
+                                    {% for m in op.movements %}
+                                        <li>
+                                            {{ m.quantity }} {{ m.product.unit }} of {{ m.product.name }} 
+                                            {% if m.from_warehouse %} (From: {{ m.from_warehouse.name }}){% endif %}
+                                            {% if m.to_warehouse %} (To: {{ m.to_warehouse.name }}){% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

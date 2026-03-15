@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Warehouses - IMS Dashboard{% endblock %}
+{% block content %}
+<div class="card mb-6">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="card-title">
+                <i class="fas fa-warehouse text-primary"></i>
+                Warehouse Management
+            </h1>
+            <p class="card-subtitle">
+                Manage your storage locations.
+            </p>
+        </div>
+        {% if current_user.role == 'manager' %}
+            <a href="{{ url_for('new_warehouse') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Warehouse
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Location</th>
+                        <th>Stock Items</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in warehouses %}
+                        <tr>
+                            <td>{{ w.id }}</td>
+                            <td>{{ w.name }}</td>
+                            <td>{{ w.location }}</td>
+                            <td>{{ w.stocks|length }} items</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
