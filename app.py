@@ -164,6 +164,15 @@ def build_transaction_analytics(df):
 
 
 def build_transaction_dashboard(df):
+    if df is None or len(df) == 0:
+        return {
+            'total_revenue': 0, 'health_score': 0, 'growth_trend': '—',
+            'growth_is_positive': True, 'total_products': 0,
+            'internal_transfers': 0, 'sales_trend_labels': [],
+            'sales_trend_delivered': [], 'sales_trend_received': [],
+            'smart_insights': ["No valid transaction data found in file."]
+        }
+    
     latest = (
         df.sort_values('date')
         .groupby(['product_id', 'product_name'], as_index=False)
@@ -603,7 +612,9 @@ def dashboard():
             total_revenue      = metrics.get('total_revenue', 0)
             csv_products_count = metrics.get('total_products', 0)
             health_score       = 100 # Default if unknown
-            smart_insights     = ["Summary data loaded. Upload a transaction history CSV for advanced growth metrics."]
+            smart_insights     = [
+                {"type": "info", "icon": "fa-info-circle", "text": "Summary data loaded. Upload a transaction history CSV for advanced growth metrics."}
+            ]
 
     # ── Step 3: Use best value for each KPI ─────────────────
     # Total products: DB if has data, else CSV count
@@ -634,7 +645,7 @@ def dashboard():
         low_stock_list       = low_stock_list[:5],
         warehouse_capacities = warehouse_capacities,
         recent_operations    = recent_operations,
-        smart_insights       = csv_data.get('smart_insights', []) if transaction_df is not None else [],
+        smart_insights       = smart_insights,
         dashboard_source     = 'live')
 
 @app.route("/staff_panel")
