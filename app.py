@@ -57,10 +57,10 @@ login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
 csrf = CSRFProtect(app)
 
-TRANSACTION_COLUMNS = {
-    'date', 'product_id', 'product_name', 'warehouse',
-    'qty_received', 'qty_delivered', 'adjustment', 'stock_after'
-}
+# Flexible requirements: Only date and product_name are strictly required for analytics.
+# Others will be filled with defaults if missing.
+REQUIRED_ANALYTICS_COLUMNS = {'date', 'product_name'}
+OPTIONAL_ANALYTICS_COLUMNS = ['product_id', 'warehouse', 'qty_received', 'qty_delivered', 'adjustment', 'stock_after']
 
 
 def is_known_product_name(name):
@@ -69,7 +69,7 @@ def is_known_product_name(name):
 
 
 def load_transaction_dataset(csv_path):
-    """Load and normalize transaction-style inventory CSV data."""
+    """Load and normalize transaction-style inventory CSV data with flexible columns."""
     if not os.path.exists(csv_path):
         return None
 
@@ -78,14 +78,26 @@ def load_transaction_dataset(csv_path):
     except Exception:
         return None
 
-    if not TRANSACTION_COLUMNS.issubset(df.columns):
+    if not REQUIRED_ANALYTICS_COLUMNS.issubset(df.columns):
         return None
 
     df = df.copy()
+    
+    # Fill missing optional columns with sensible defaults
+    for col in OPTIONAL_ANALYTICS_COLUMNS:
+        if col not in df.columns:
+            if col in ['qty_received', 'qty_delivered', 'adjustment', 'stock_after']:
+                df[col] = 0
+            elif col == 'product_id':
+                df[col] = range(len(df))
+            elif col == 'warehouse':
+                df[col] = 'Default Warehouse'
+
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
     for col in ['qty_received', 'qty_delivered', 'adjustment', 'stock_after']:
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-    df = df.dropna(subset=['date', 'product_id', 'product_name'])
+    
+    df = df.dropna(subset=['date', 'product_name'])
     df = df[df['product_name'].apply(is_known_product_name)]
     return df
 
@@ -555,6 +567,9 @@ def dashboard():
 
     transaction_csv_path = os.path.join(
         app.config['UPLOAD_FOLDER'], 'inventory_demo_dataset.csv')
+    summary_csv_path = os.path.join(
+        app.config['UPLOAD_FOLDER'], 'data.csv')
+    
     transaction_df = load_transaction_dataset(transaction_csv_path)
 
     if transaction_df is not None:
@@ -570,6 +585,16 @@ def dashboard():
         sales_trend_labels    = csv_data.get('sales_trend_labels', [])
         sales_trend_delivered = csv_data.get('sales_trend_delivered', [])
         sales_trend_received  = csv_data.get('sales_trend_received', [])
+        smart_insights        = csv_data.get('smart_insights', [])
+    else:
+        # Fallback to Summary CSV if Transaction CSV is missing
+        summary_df = load_inventory_data(summary_csv_path)
+        if summary_df is not None:
+            metrics = calculate_inventory_metrics(summary_df)
+            total_revenue      = metrics.get('total_revenue', 0)
+            csv_products_count = metrics.get('total_products', 0)
+            health_score       = 100 # Default if unknown
+            smart_insights     = ["Summary data loaded. Upload a transaction history CSV for advanced growth metrics."]
 
     # ── Step 3: Use best value for each KPI ─────────────────
     # Total products: DB if has data, else CSV count
@@ -958,26 +983,24 @@ def upload_analytics_csv():
         else:
             df = pd.read_csv(temp_path)
 
-        # Determine which analytics format it matches.
-        target_path = None
-        uploaded_source = None
-
-        if TRANSACTION_COLUMNS.issubset(df.columns):
+        # Combine checks for target path
+        active_paths = {transaction_path, summary_path}
+        
+        # Determine if the uploaded file is a transaction file or summary
+        if REQUIRED_ANALYTICS_COLUMNS.issubset(df.columns):
             target_path = transaction_path
             uploaded_source = 'transaction csv'
-            df.to_csv(target_path, index=False)
-
         else:
             is_valid, message = validate_csv_data(df)
             if is_valid:
                 target_path = summary_path
                 uploaded_source = 'summary csv'
-                df.to_csv(target_path, index=False)
             else:
                 raise ValueError(message)
 
-        # Keep exactly one active CSV source to avoid stale data winning route priority.
-        for old_path in [transaction_path, summary_path]:
+        # Save to target and remove the OTHER one to prevent conflict
+        df.to_csv(target_path, index=False)
+        for old_path in active_paths:
             if old_path != target_path and os.path.exists(old_path):
                 os.remove(old_path)
 
@@ -1000,6 +1023,9 @@ def analytics():
 
 def init_db():
     with app.app_context():
+        # Ensure upload folder exists
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        
         db.create_all()
         
         # Manual fix for PostgreSQL password_hash length
@@ -1011,12 +1037,21 @@ def init_db():
             # Table might not exist yet or column already altered
             db.session.rollback()
 
-        unknown_products = Product.query.filter(Product.name.ilike('%unknown%')).all()
-        for product in unknown_products:
-            StockMovement.query.filter_by(product_id=product.id).delete()
-            Stock.query.filter_by(product_id=product.id).delete()
-            db.session.delete(product)
-        if unknown_products:
+        # Seed products if empty
+        if not Product.query.first():
+            demo_prods = [
+                {'name': 'Industrial Motor XL', 'sku': 'IND-MOT-001', 'category': 'Machinery', 'unit': 'unit', 'min': 5},
+                {'name': 'Copper Wire 100m', 'sku': 'ELE-WIR-052', 'category': 'Electrical', 'unit': 'roll', 'min': 20},
+                {'name': 'Steel Bolts M8', 'sku': 'FAS-BLT-008', 'category': 'Fasteners', 'unit': 'box', 'min': 50},
+                {'name': 'Hydraulic Oil 20L', 'sku': 'LUB-OIL-020', 'category': 'Lubricants', 'unit': 'can', 'min': 10},
+                {'name': 'Safety Helmet', 'sku': 'PPE-HLM-001', 'category': 'Safety', 'unit': 'unit', 'min': 15},
+                {'name': 'Welding Rods E6013', 'sku': 'WLD-ROD-613', 'category': 'Welding', 'unit': 'kg', 'min': 30},
+                {'name': 'Bearing 6204-2RS', 'sku': 'MCH-BRG-204', 'category': 'Mechanical', 'unit': 'unit', 'min': 40},
+                {'name': 'LED Panel 40W', 'sku': 'LGT-PAN-040', 'category': 'Lighting', 'unit': 'unit', 'min': 12},
+            ]
+            for p_data in demo_prods:
+                p = Product(name=p_data['name'], sku=p_data['sku'], category=p_data['category'], unit=p_data['unit'], min_stock_level=p_data['min'])
+                db.session.add(p)
             db.session.commit()
 
         # Add default warehouses if none exist

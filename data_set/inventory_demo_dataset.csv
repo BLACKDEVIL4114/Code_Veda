@@ -1,0 +1,18 @@
+date,product_id,product_name,warehouse,qty_received,qty_delivered,adjustment,stock_after
+2026-03-01,1,Industrial Motor XL,Main Warehouse,100,0,0,100
+2026-03-02,2,Copper Wire 100m,Main Warehouse,200,0,0,200
+2026-03-03,3,Steel Bolts M8,Main Warehouse,500,0,0,500
+2026-03-04,1,Industrial Motor XL,Main Warehouse,0,20,0,80
+2026-03-05,2,Copper Wire 100m,Main Warehouse,0,50,0,150
+2026-03-06,4,Hydraulic Oil 20L,Production Floor,50,0,0,50
+2026-03-07,1,Industrial Motor XL,Main Warehouse,0,10,0,70
+2026-03-08,5,Safety Helmet,Store A,100,0,0,100
+2026-03-09,2,Copper Wire 100m,Main Warehouse,0,30,0,120
+2026-03-10,3,Steel Bolts M8,Main Warehouse,0,100,0,400
+2026-03-11,6,Welding Rods E6013,Production Floor,80,0,0,80
+2026-03-12,4,Hydraulic Oil 20L,Production Floor,0,15,0,35
+2026-03-13,7,Bearing 6204-2RS,Main Warehouse,150,0,0,150
+2026-03-14,1,Industrial Motor XL,Main Warehouse,0,5,0,65
+2026-03-15,5,Safety Helmet,Store A,0,20,0,80
+2026-03-16,8,LED Panel 40W,Store A,40,0,0,40
+2026-03-17,2,Copper Wire 100m,Main Warehouse,0,20,0,100
