@@ -342,12 +342,17 @@ def signup():
         return redirect(url_for('dashboard'))
     form = RegistrationForm()
     if form.validate_on_submit():
-        user = User(username=form.username.data, email=form.email.data, role=form.role.data)
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
-        flash('Your account has been created! You are now able to log in', 'success')
-        return redirect(url_for('login'))
+        try:
+            user = User(username=form.username.data, email=form.email.data, role=form.role.data)
+            user.set_password(form.password.data)
+            db.session.add(user)
+            db.session.commit()
+            flash('Your account has been created! You are now able to log in', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            import traceback
+            error_details = f"Error during signup: {str(e)}\n{traceback.format_exc()}"
+            return f"<h1>Debug Error</h1><pre>{error_details}</pre>", 500
     return render_template('signup.html', title='Sign Up', form=form)
 
 @app.route("/login", methods=['GET', 'POST'])
@@ -997,6 +1002,16 @@ def analytics():
 def init_db():
     with app.app_context():
         db.create_all()
+        
+        # Manual fix for PostgreSQL password_hash length
+        from sqlalchemy import text
+        try:
+            db.session.execute(text('ALTER TABLE "user" ALTER COLUMN password_hash TYPE VARCHAR(256)'))
+            db.session.commit()
+        except Exception as e:
+            # Table might not exist yet or column already altered
+            db.session.rollback()
+
         unknown_products = Product.query.filter(Product.name.ilike('%unknown%')).all()
         for product in unknown_products:
             StockMovement.query.filter_by(product_id=product.id).delete()
