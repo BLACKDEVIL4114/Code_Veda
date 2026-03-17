@@ -465,13 +465,24 @@ def health_check():
     db_uri = app.config['SQLALCHEMY_DATABASE_URI']
     db_type = "PostgreSQL" if db_uri.startswith('postgresql') else "SQLite (Temporary/Local)"
     
+    tables = []
+    engine_error = None
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        tables = inspector.get_table_names()
+    except Exception as e:
+        engine_error = str(e)
+
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "database_type": db_type,
         "database_location": db_uri.split('@')[-1], # Mask credentials
         "vercel_environment": bool(os.environ.get('VERCEL')),
-        "secret_key_stable": os.environ.get('SECRET_KEY') is not None
+        "secret_key_stable": os.environ.get('SECRET_KEY') is not None,
+        "database_tables": tables,
+        "engine_error": engine_error
     }), 200
 
 @app.route("/")
@@ -1004,9 +1015,13 @@ def init_db():
 
 # Initialize database on app startup
 try:
+    print(f"Starting database initialization on {app.config['SQLALCHEMY_DATABASE_URI'].split('@')[-1]}")
     init_db()
+    print("Database initialization successful.")
 except Exception as e:
-    print(f"Database initialization failed: {e}")
+    import traceback
+    print(f"Database initialization failed: {str(e)}")
+    print(traceback.format_exc())
 
 if __name__ == '__main__':
     import os as _os
