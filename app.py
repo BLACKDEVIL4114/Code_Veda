@@ -579,17 +579,32 @@ def dashboard():
 
     sales_trend_received  = []
 
-    # Path resolution: Check /tmp first, then repo data_set
-    transaction_csv_path = os.path.join(app.config['UPLOAD_FOLDER'], 'inventory_demo_dataset.csv')
-    if not os.path.exists(transaction_csv_path):
-        transaction_csv_path = os.path.join('data_set', 'inventory_demo_dataset.csv')
+    # Path resolution: Priority to User Uploads then Repo Defaults
+    fresh_t = os.path.join(app.config['UPLOAD_FOLDER'], 'inventory_demo_dataset.csv')
+    fresh_s = os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv')
+    repo_t = os.path.join('data_set', 'inventory_demo_dataset.csv')
+    repo_s = os.path.join('data_set', 'data.csv')
 
-    summary_csv_path = os.path.join(app.config['UPLOAD_FOLDER'], 'data.csv')
-    if not os.path.exists(summary_csv_path):
-        summary_csv_path = os.path.join('data_set', 'data.csv')
+    transaction_df = None
+    summary_df = None
+
+    # Priority 1: Fresh Transaction History
+    if os.path.exists(fresh_t):
+        transaction_df = load_transaction_dataset(fresh_t)
     
-    transaction_df = load_transaction_dataset(transaction_csv_path)
+    # Priority 2: Fresh Summary Stock
+    if transaction_df is None and os.path.exists(fresh_s):
+        summary_df = load_inventory_data(fresh_s)
+    
+    # Priority 3: Demo Transaction (Repo)
+    if transaction_df is None and summary_df is None and os.path.exists(repo_t):
+        transaction_df = load_transaction_dataset(repo_t)
+    
+    # Priority 4: Demo Summary (Repo)
+    if transaction_df is None and summary_df is None and os.path.exists(repo_s):
+        summary_df = load_inventory_data(repo_s)
 
+    # Process the winner
     if transaction_df is not None:
         csv_data = build_transaction_dashboard(transaction_df)
         total_revenue          = csv_data.get('total_revenue', 0)
@@ -604,17 +619,14 @@ def dashboard():
         sales_trend_delivered = csv_data.get('sales_trend_delivered', [])
         sales_trend_received  = csv_data.get('sales_trend_received', [])
         smart_insights        = csv_data.get('smart_insights', [])
-    else:
-        # Fallback to Summary CSV if Transaction CSV is missing
-        summary_df = load_inventory_data(summary_csv_path)
-        if summary_df is not None:
-            metrics = calculate_inventory_metrics(summary_df)
-            total_revenue      = metrics.get('total_revenue', 0)
-            csv_products_count = metrics.get('total_products', 0)
-            health_score       = 100 # Default if unknown
-            smart_insights     = [
-                {"type": "info", "icon": "fa-info-circle", "text": "Summary data loaded. Upload a transaction history CSV for advanced growth metrics."}
-            ]
+    elif summary_df is not None:
+        metrics = calculate_inventory_metrics(summary_df)
+        total_revenue      = metrics.get('total_revenue', 0)
+        csv_products_count = metrics.get('total_products', 0)
+        health_score       = 100 # Default if unknown
+        smart_insights     = [
+            {"type": "info", "icon": "fa-info-circle", "text": "Summary data loaded. Upload a transaction history CSV for advanced growth metrics."}
+        ]
 
     # ── Step 3: Use best value for each KPI ─────────────────
     # Total products: DB if has data, else CSV count
