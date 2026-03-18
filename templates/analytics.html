@@ -330,16 +330,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const C = ['#dc2626','#9d174d','#f43f5e','#ef4444','#991b1b','#fca5a5','#4f46e5','#10b981','#f59e0b','#06b6d4'];
 
   /* ── Page Init ── */
-  loadRealData();
+  // Only auto-load analysis if user hasn't cancelled it this session
+  if (sessionStorage.getItem('analyticsCancelled') !== 'true') {
+    loadRealData();
+  } else {
+    // Show upload zone, keep AWAITING DATA badge
+    document.getElementById('uploadZone').style.display = 'flex';
+    document.getElementById('dashboardContainer').style.display = 'none';
+  }
 
   /* ── drag/drop ── */
   uploadZone.addEventListener('dragover',  e=>{e.preventDefault();uploadZone.classList.add('dragover');});
   uploadZone.addEventListener('dragleave', ()=>uploadZone.classList.remove('dragover'));
   uploadZone.addEventListener('drop', e=>{
     e.preventDefault(); uploadZone.classList.remove('dragover');
+    sessionStorage.removeItem('analyticsCancelled');
     if(e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
   });
   fileInput.addEventListener('change', e=>{
+    sessionStorage.removeItem('analyticsCancelled');  // user is starting fresh
     if(e.target.files[0]) uploadFile(e.target.files[0]);
     e.target.value='';
   });
@@ -373,11 +382,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('loadingOverlay').style.display = 'none';
     document.getElementById('lastUpdatedBadge').textContent = 'AWAITING DATA';
     document.getElementById('lastUpdatedBadge').style.background = 'var(--gray-800)';
+    // Persist cancelled state so switching tabs doesn't re-load analysis
+    sessionStorage.setItem('analyticsCancelled', 'true');
     window.scrollTo({top:0,behavior:'smooth'});
   };
 
   document.getElementById('resetBtn').addEventListener('click', () => {
     dashCont.style.display='none'; uploadZone.style.display='flex';
+    sessionStorage.removeItem('analyticsCancelled');
     window.scrollTo({top:0,behavior:'smooth'});
   });
 
