@@ -35,6 +35,13 @@
     display:inline-flex; align-items:center; gap:.5rem; transition:var(--transition);
   }
   .btn-demo:hover { border-color:var(--primary-color); color:var(--primary-color); }
+  .btn-cancel {
+    background:transparent; border:1.5px solid #fca5a5; color:#dc2626;
+    border-radius:var(--border-radius); padding:.65rem 1.4rem;
+    font-weight:600; font-size:.875rem; cursor:pointer;
+    display:inline-flex; align-items:center; gap:.5rem; transition:var(--transition);
+  }
+  .btn-cancel:hover { background:#fef2f2; border-color:#dc2626; }
 
   /* Loading */
   .loading-overlay { display:none; text-align:center; padding:3rem; background:var(--glass-bg); backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); border-radius:var(--border-radius-xl); box-shadow:var(--shadow); }
@@ -170,6 +177,9 @@
       <button class="btn-upload" onclick="document.getElementById('fileInput').click()">
         <i class="fas fa-upload"></i> Upload &amp; Analyse
       </button>
+      <button class="btn-cancel" id="cancelUploadBtn" style="display:none;" onclick="cancelUpload()">
+        <i class="fas fa-times"></i> Cancel
+      </button>
     </div>
     <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none;">
   </div>
@@ -179,6 +189,9 @@
     <div class="spinner"></div>
     <h3 style="color:var(--gray-800);font-weight:700;">Processing Data…</h3>
     <p style="color:var(--gray-600);font-size:.87rem;margin-top:.4rem;" id="loadingMsg">Analysing columns and generating insights</p>
+    <button class="btn-cancel" style="margin-top:1.25rem;" onclick="cancelUpload()">
+      <i class="fas fa-times-circle"></i> Cancel Upload
+    </button>
   </div>
 
   <!-- Dashboard -->
@@ -337,6 +350,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* ── reset / export ── */
+  /* cancel upload */
+  window.cancelUpload = function() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+    document.getElementById('uploadZone').style.display = 'flex';
+    const cbtn = document.getElementById('cancelUploadBtn');
+    if (cbtn) cbtn.style.display = 'none';
+    document.getElementById('fileInput').value = '';
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
+
   document.getElementById('resetBtn').addEventListener('click', () => {
     dashCont.style.display='none'; uploadZone.style.display='flex';
     window.scrollTo({top:0,behavior:'smooth'});
@@ -345,6 +368,8 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ── upload handler ── */
   async function uploadFile(file) {
     loadingOvl.style.display = 'block';
+    const cbtn = document.getElementById('cancelUploadBtn');
+    if (cbtn) cbtn.style.display = 'inline-flex';
     loadingMsg.textContent = `Uploading and syncing ${file.name}...`;
     
     const formData = new FormData();
